@@ -9,6 +9,7 @@ import UIKit // Import UIKit for keyboard dismissal
 
 struct AddConsumptionView: View {
     @EnvironmentObject private var dataManager: DataManager
+    @FocusState private var isTextFieldFocused: Bool
     @State private var selectedCategory: MealCategory = .snack
     @State private var calories: String = ""
     @State private var waterAmount: String = ""
@@ -36,89 +37,100 @@ struct AddConsumptionView: View {
     }
     
     var body: some View {
-        Form {
-            Section(header: Text("Type")) {
-                Picker("Category", selection: $selectedCategory) {
-                    ForEach(MealCategory.allCases, id: \.self) { category in
+        ZStack {
+            // Add background tap area
+            Color.clear
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    isTextFieldFocused = false
+                }
+            
+            Form {
+                Section(header: Text("Type")) {
+                    Picker("Category", selection: $selectedCategory) {
+                        ForEach(MealCategory.allCases, id: \.self) { category in
+                            HStack {
+                                Image(systemName: category.icon)
+                                    .foregroundColor(category.color)
+                                Text(category.rawValue.capitalized)
+                            }
+                            .tag(category)
+                        }
+                    }
+                    .pickerStyle(.navigationLink)
+                }
+                
+                Section(header: Text("Amount")) {
+                    if selectedCategory != .drink {
                         HStack {
-                            Image(systemName: category.icon)
-                                .foregroundColor(category.color)
-                            Text(category.rawValue.capitalized)
+                            Image(systemName: "flame.fill")
+                                .foregroundColor(.orange)
+                            TextField("Calories", text: $calories)
+                                .keyboardType(.decimalPad)
+                                .focused($isTextFieldFocused)
+                            Stepper("", value: Binding(
+                                get: { Double(calories) ?? 0 },
+                                set: { calories = "\(Int($0))" }
+                            ), in: 0...2000, step: 49)
+                            .labelsHidden()
                         }
-                        .tag(category)
-                    }
-                }
-                .pickerStyle(.navigationLink)
-            }
-            
-            Section(header: Text("Amount")) {
-                if selectedCategory != .drink {
-                    HStack {
-                        Image(systemName: "flame.fill")
-                            .foregroundColor(.orange)
-                        TextField("Calories", text: $calories)
-                            .keyboardType(.decimalPad)
-                        Stepper("", value: Binding(
-                            get: { Double(calories) ?? 0 },
-                            set: { calories = "\(Int($0))" }
-                        ), in: 0...2000, step: 49)
-                        .labelsHidden()
-                    }
-                    
-                    // Quick presets
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 10) {
-                            ForEach([50, 100, 200, 300, 400], id: \.self) { value in
-                                Button("\(value)") {
-                                    calories = "\(value)"
+                        
+                        // Quick presets
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 10) {
+                                ForEach([50, 100, 200, 300, 400], id: \.self) { value in
+                                    Button("\(value)") {
+                                        calories = "\(value)"
+                                    }
+                                    .buttonStyle(.bordered)
+                                    .tint(calories == "\(value)" ? .accentColor : .secondary)
                                 }
-                                .buttonStyle(.bordered)
-                                .tint(calories == "\(value)" ? .accentColor : .secondary)
                             }
+                            .padding(.vertical, 5)
                         }
-                        .padding(.vertical, 5)
-                    }
-                } else {
-                    HStack {
-                        Image(systemName: "drop.fill")
-                            .foregroundColor(.blue)
-                        TextField("Water (L)", text: $waterAmount)
-                            .keyboardType(.decimalPad)
-                        Stepper("", value: Binding(
-                            get: { Double(waterAmount) ?? 0 },
-                            set: { waterAmount = String(format: "%.2f", $0) }
-                        ), in: 0...5, step: 0.1)
-                        .labelsHidden()
-                    }
-                    
-                    // Quick presets
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 10) {
-                            ForEach([0.25, 0.5, 0.75, 1.0, 1.5], id: \.self) { value in
-                                Button("\(value, specifier: "%.2f")") {
-                                    waterAmount = "\(value)"
+                    } else {
+                        HStack {
+                            Image(systemName: "drop.fill")
+                                .foregroundColor(.blue)
+                            TextField("Water (L)", text: $waterAmount)
+                                .keyboardType(.decimalPad)
+                                .focused($isTextFieldFocused)
+                            Stepper("", value: Binding(
+                                get: { Double(waterAmount) ?? 0 },
+                                set: { waterAmount = String(format: "%.2f", $0) }
+                            ), in: 0...5, step: 0.1)
+                            .labelsHidden()
+                        }
+                        
+                        // Quick presets
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 10) {
+                                ForEach([0.25, 0.5, 0.75, 1.0, 1.5], id: \.self) { value in
+                                    Button("\(value, specifier: "%.2f")") {
+                                        waterAmount = "\(value)"
+                                    }
+                                    .buttonStyle(.bordered)
+                                    .tint(waterAmount == "\(value)" ? .accentColor : .secondary)
                                 }
-                                .buttonStyle(.bordered)
-                                .tint(waterAmount == "\(value)" ? .accentColor : .secondary)
                             }
+                            .padding(.vertical, 5)
                         }
-                        .padding(.vertical, 5)
                     }
                 }
-            }
-            
-            Section {
-                Button(action: addConsumption) {
-                    HStack {
-                        Spacer()
-                        Text("Add")
-                            .bold()
-                        Spacer()
+                
+                Section {
+                    Button(action: addConsumption) {
+                        HStack {
+                            Spacer()
+                            Text("Add")
+                                .bold()
+                            Spacer()
+                        }
                     }
+                    .disabled(!isValidInput)
+                    .listRowBackground(Color.blue)
+                    .foregroundColor(.white)
                 }
-                .disabled(!isValidInput)
-                .listRowBackground(Color.blue)
-                .foregroundColor(.white)
             }
         }
         .alert(item: $alertType) { type in
@@ -134,18 +146,8 @@ struct AddConsumptionView: View {
         } message: {
             Text(addedItemDescription)
         }
-        // Add tap gesture to dismiss keyboard
-        .onTapGesture {
-            hideKeyboard()
-        }
-        // Removed the toolbar item with the "Done" button here
     }
 
-    // Function to hide the keyboard
-    private func hideKeyboard() {
-        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-    }
-    
     private var isValidInput: Bool {
         if selectedCategory == .drink {
             guard let water = Double(waterAmount) else { return false }
@@ -192,8 +194,6 @@ struct AddConsumptionView: View {
             addedItemDescription = "Added \(newCalories) calories (\(selectedCategory.rawValue))"
         }
         
-        
-        
         dataManager.addConsumption(item)
         
         // Show success alert
@@ -202,8 +202,6 @@ struct AddConsumptionView: View {
         // Provide haptic feedback
         let generator = UINotificationFeedbackGenerator()
         generator.notificationOccurred(.success)
-        
-        
     }
     
     private func getAlertContent(for type: AlertType) -> (String, String) {
@@ -224,8 +222,6 @@ struct AddConsumptionView: View {
         waterAmount = ""
     }
 }
-
-
 
 #Preview {
     NavigationView {
