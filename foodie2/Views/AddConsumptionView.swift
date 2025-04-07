@@ -5,6 +5,7 @@
 //
 
 import SwiftUI
+import UIKit // Import UIKit for keyboard dismissal
 
 struct AddConsumptionView: View {
     @EnvironmentObject private var dataManager: DataManager
@@ -133,7 +134,16 @@ struct AddConsumptionView: View {
         } message: {
             Text(addedItemDescription)
         }
+        // Add tap gesture to dismiss keyboard
+        .onTapGesture {
+            hideKeyboard()
+        }
         // Removed the toolbar item with the "Done" button here
+    }
+
+    // Function to hide the keyboard
+    private func hideKeyboard() {
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
     
     private var isValidInput: Bool {
